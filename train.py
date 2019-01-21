@@ -9,7 +9,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from data import distorted_inputs
-from model import select_model
+from model import select_model, get_restored_step
 import json
 import re
 
@@ -84,6 +84,9 @@ def optimizer(optim, eta, loss_fn, at_step, decay_rate):
     elif optim == 'Momentum':
         optz = lambda lr: tf.train.MomentumOptimizer(lr, MOM)
         lr_decay_fn = exponential_staircase_decay(at_step, decay_rate)
+    elif optim == 'Adam':
+        optz = lambda lr: tf.train.AdamOptimizer(lr, epsilon=1e-8)
+        lr_decay_fn = exponential_staircase_decay(at_step, decay_rate)
 
     return tf.contrib.layers.optimize_loss(loss_fn, global_step, eta, optz, clip_gradients=4., learning_rate_decay_fn=lr_decay_fn)
 
@@ -120,6 +123,7 @@ def main(argv=None):
         images, labels, _ = distorted_inputs(FLAGS.train_dir, FLAGS.batch_size, FLAGS.image_size, FLAGS.num_preprocess_threads)
         logits = model_fn(md['nlabels'], images, 1-FLAGS.pdrop, True)
         total_loss = loss(logits, labels)
+        ini_global_step = 0
 
         train_op = optimizer(FLAGS.optim, FLAGS.eta, total_loss, FLAGS.steps_per_decay, FLAGS.eta_decay_rate)
         saver = tf.train.Saver(tf.global_variables())
@@ -141,9 +145,11 @@ def main(argv=None):
             if tf.gfile.Exists(FLAGS.pre_checkpoint_path) is True:
                 print('Trying to restore checkpoint from %s' % FLAGS.pre_checkpoint_path)
                 restorer = tf.train.Saver()
-                tf.train.latest_checkpoint(FLAGS.pre_checkpoint_path)
+                restorer.restore(sess, tf.train.latest_checkpoint(FLAGS.pre_checkpoint_path))
                 print('%s: Pre-trained model restored from %s' %
                       (datetime.now(), FLAGS.pre_checkpoint_path))
+                ini_global_step = get_restored_step(FLAGS.pre_checkpoint_path)
+                print('Initail Global Step is {}'.format(ini_global_step))
 
 
         run_dir = '%s/run-%d' % (FLAGS.train_dir, os.getpid())
@@ -163,8 +169,9 @@ def main(argv=None):
         num_steps = FLAGS.max_steps if FLAGS.epochs < 1 else FLAGS.epochs * steps_per_train_epoch
         print('Requested number of steps [%d]' % num_steps)
 
-        
+
         for step in xrange(num_steps):
+            step += ini_global_step
             start_time = time.time()
             _, loss_value = sess.run([train_op, total_loss])
             duration = time.time() - start_time
@@ -175,7 +182,7 @@ def main(argv=None):
                 num_examples_per_step = FLAGS.batch_size
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = float(duration)
-                
+
                 format_str = ('%s: step %d, loss = %.3f (%.1f examples/sec; %.3f ' 'sec/batch)')
                 print(format_str % (datetime.now(), step, loss_value,
                                     examples_per_sec, sec_per_batch))
@@ -184,7 +191,7 @@ def main(argv=None):
             if step % 100 == 0:
                 summary_str = sess.run(summary_op)
                 summary_writer.add_summary(summary_str, step)
-                
+
             if step % 1000 == 0 or (step + 1) == num_steps:
                 saver.save(sess, checkpoint_path, global_step=step)
 
