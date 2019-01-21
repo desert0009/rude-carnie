@@ -94,6 +94,8 @@ def eval_once(saver, summary_writer, summary_op, logits, labels, num_eval, reque
     top2 = tf.nn.in_top_k(logits, labels, 2)
 
     with tf.Session() as sess:
+        sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, \
+                                                log_device_placement=False))
         checkpoint_path = '%s/run-%d' % (FLAGS.train_dir, FLAGS.run_id)
 
         model_checkpoint_path, global_step = get_checkpoint(checkpoint_path, requested_step, FLAGS.checkpoint)
@@ -104,6 +106,7 @@ def eval_once(saver, summary_writer, summary_op, logits, labels, num_eval, reque
         coord = tf.train.Coordinator()
         try:
             threads = []
+            fps = []
             for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
                 threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
                                                  start=True))
@@ -123,6 +126,7 @@ def eval_once(saver, summary_writer, summary_op, logits, labels, num_eval, reque
                 true_count1 += np.sum(predictions1)
                 true_count2 += np.sum(predictions2)
                 format_str = ('%s (%.1f examples/sec; %.3f sec/batch)')
+                fps.append(examples_per_sec)
                 print(format_str % (datetime.now(),
                                     examples_per_sec, sec_per_batch))
 
@@ -134,6 +138,7 @@ def eval_once(saver, summary_writer, summary_op, logits, labels, num_eval, reque
             at2 = true_count2 / total_sample_count
             print('%s: precision @ 1 = %.3f (%d/%d)' % (datetime.now(), at1, true_count1, total_sample_count))
             print('%s:    recall @ 2 = %.3f (%d/%d)' % (datetime.now(), at2, true_count2, total_sample_count))
+            print('{} FPS={} with batch_size={}'.format(datetime.now(), np.average(fps), FLAGS.batch_size))
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))

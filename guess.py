@@ -67,15 +67,21 @@ def classify_many_single_crop(sess, label_list, softmax_output, coder, images, i
     try:
         num_batches = math.ceil(len(image_files) / MAX_BATCH_SZ)
         pg = ProgressBar(num_batches)
-        for j in range(num_batches):
+        for j in range(int(num_batches)):
             start_offset = j * MAX_BATCH_SZ
             end_offset = min((j + 1) * MAX_BATCH_SZ, len(image_files))
             
             batch_image_files = image_files[start_offset:end_offset]
             print(start_offset, end_offset, len(batch_image_files))
             image_batch = make_multi_image_batch(batch_image_files, coder)
+            
+            start_time = time.time()
             batch_results = sess.run(softmax_output, feed_dict={images:image_batch.eval()})
+            duration = time.time() - start_time # sec per batch
             batch_sz = batch_results.shape[0]
+            print('{} examples/sec, {} sec/batch' \
+                  .format(round(float(batch_sz / duration), 3), round(duration, 3)))
+            
             for i in range(batch_sz):
                 output_i = batch_results[i]
                 best_i = np.argmax(output_i)
@@ -96,7 +102,12 @@ def classify_one_multi_crop(sess, label_list, softmax_output, coder, images, ima
         print('Running file %s' % image_file)
         image_batch = make_multi_crop_batch(image_file, coder)
 
+        start_time = time.time()
         batch_results = sess.run(softmax_output, feed_dict={images:image_batch.eval()})
+        duration = time.time() - start_time
+        print('{} examples/sec, {} sec/batch' \
+                  .format(round(float(len(batch_results) / duration), 3), round(duration, 3)))
+        
         output = batch_results[0]
         batch_sz = batch_results.shape[0]
     
