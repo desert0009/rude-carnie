@@ -1,13 +1,13 @@
-Rude Carnie: Age and Gender Deep Learning with TensorFlow
+Age and Gender Deep Learning with TensorFlow
 ==========================================================
 
 ## Goal
 
 Do face detection and age and gender classification on pictures
 
-### Name
+### Presentation
 
-http://www.someecards.com/news/getting-old/howoldnet-takes-your-picture-and-uses-algorithms-to-guess-your-age-like-a-rude-carnie/
+https://drive.google.com/drive/folders/1Otfem1T-k33qWxD5hXRRgjD3vPjqXnFc
 
 ### Currently Supported Models
 
@@ -15,6 +15,10 @@ http://www.someecards.com/news/getting-old/howoldnet-takes-your-picture-and-uses
 
     - http://www.openu.ac.il/home/hassner/projects/cnn_agegender/
     - https://github.com/GilLevi/AgeGenderDeepLearning
+    
+  - _Yuxi Li, Jiuwei Li, Weiyao Lin, and Jianguo Li. Tiny-DSOD: Lightweight Object Detection for Resource-Restricted Usages. In Proceedings of the British Machine Vision Conference 2018, BMVC 2018, Newcastle, UK, September 3-6, 2018, July 2018a_
+    - https://arxiv.org/abs/1807.11013
+    - https://github.com/Chtchou/TinyDSOD_bb
 
   - Inception v3 with fine-tuning
     - This will start with an inception v3 checkpoint, and fine-tune for either age or gender detection 
@@ -105,6 +109,18 @@ Running multi-cropped image
 Guess @ 1 M, prob = 0.99
 
 ```
+#### Prediction with Tiny-DSOD model
+
+If you want to prediction age with a Tiny-DSOD model, you can try:
+
+```
+$ python guess.py --model_dir AgeGenderDeepLearning/Folds/tf/age_test_fold_is_4/run-19053 --filename data/test/group.jpg --model_type tinydsod --face_detection_type dlib --face_detection_model ../shape_predictor_68_face_landmarks.dat --single_look
+```
+
+And you can predict gender with a Tiny-DSOD_accurate model:
+```
+$ python guess.py --model_dir AgeGenderDeepLearning/Folds/tf/gen_test_fold_is_0/run-22689 --filename data/test/group.jpg --model_type tinydsod_accurate --class_type gender --face_detection_type dlib --face_detection_model ../shape_predictor_68_face_landmarks.dat --single_look
+```
 
 ### Pre-trained Checkpoints
 You can find a pre-trained age checkpoint for inception here:
@@ -114,6 +130,14 @@ https://drive.google.com/drive/folders/0B8N1oYmGLVGWbDZ4Y21GLWxtV1E
 A pre-trained gender checkpoint for inception is available here:
 
 https://drive.google.com/drive/folders/0B8N1oYmGLVGWemZQd3JMOEZvdGs
+
+A pre-trained age checkpoint for Tiny-DSOD is available here:
+
+https://drive.google.com/drive/folders/1qkaF_zEyVSGMOC7zBWVn29O26kKbaMiP
+
+A pre-trained gender checkpoint for Tiny-DSOD_accurate is available here:
+
+https://drive.google.com/drive/folders/1gDL4QWD8o83kPkJMie9TwV6EryavrdKX
 
 ### Training
 
@@ -193,6 +217,26 @@ You can get the inception_v3.ckpt like so:
 $ wget http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz
 ```
 
+#### Train the model (Tiny-DSOD)
+
+You can train age problem with Tiny-DSOD model. Here is an example for how to do this:
+
+```
+$ python train.py --train_dir AgeGenderDeepLearning/Folds/tf/age_test_fold_is_0 --max_steps 15000 --model_type tinydsod --batch_size 32 --eta 0.01
+```
+
+And you can restore last checkpoint to train continuously:
+
+```
+$ python train.py --train_dir AgeGenderDeepLearning/Folds/tf/age_test_fold_is_0 --max_steps 25000 --model_type tinydsod --batch_size 32 --eta 0.5 --pre_checkpoint_path AgeGenderDeepLearning/Folds/tf/age_test_fold_is_0/run-19557
+```
+
+Here is an example for gender problem:
+
+```
+$ python train.py --train_dir AgeGenderDeepLearning/Folds/tf/gen_test_fold_is_0 --max_steps 15000 --model_type tinydsod_accurate --batch_size 32 --eta 0.01
+```
+
 #### Monitoring the training
 
 You can easily monitor the job run by launching tensorboard with the --logdir specified in the program's initial output:
@@ -224,4 +268,10 @@ To monitor the fine-tuning of an inception model, the call is much the same.  Ju
 
 ```
 $ python eval.py  --run_id 8128 --train_dir /home/dpressel/dev/work/AgeGenderDeepLearning/Folds/tf/age_test_fold_is_0/ --eval_dir /home/dpressel/dev/work/AgeGenderDeepLearning/Folds/tf/eval_age_test_fold_is_0 --model_type inception
+```
+
+And you can evalute model with GPU. Just be sure to pass --device_id with your GPU name
+
+```
+$ python eval.py --run_id 19053 --train_dir AgeGenderDeepLearning/Folds/tf/age_test_fold_is_0/ --eval_dir AgeGenderDeepLearning/Folds/tf/eval_age_test_fold_is_0/ --model_type tinydsod --device_id /gpu:1 --requested_step_seq 49000 --batch_size 1
 ```
